@@ -29,6 +29,8 @@ public class DemoApplication {
 	@Getter
 	private ArrayList<String> alunni = new ArrayList<>();
 	@Getter
+	private ArrayList<String> alunniNome = new ArrayList<>();
+	@Getter
 	private double sommaTotale;
 	private JsonArray jsonArray = new JsonArray();
 	@Getter
@@ -42,19 +44,21 @@ public class DemoApplication {
 	public void addAlunni(String a){
 		alunni.add(a);
 	}
+	public void addAlunniNome(String a){ alunniNome.add(a);}
 
 	public static void main(String[] args) throws SQLException {
 
 		DemoApplication application = new DemoApplication();
 
 		ConnessioneDb c = new ConnessioneDb();
-		ResultSet r = c.select("select u.email, c.name as classe, y.description as anno from ca_users as u, ca_frequented_classes as fc, ca_school_classes as c, ca_school_years as y\n" +
+		ResultSet r = c.select("select u.name, u.email, c.name as classe, y.description as anno from ca_users as u, ca_frequented_classes as fc, ca_school_classes as c, ca_school_years as y\n" +
 				"    where fc.school_class_id = c.id and\n" +
 				"          fc.user_id = u.id and\n" +
 				"          c.school_year_id = y.id and\n" +
 				"          y.description = \"Anno scolastico 2022 - 2023\" and\n" +
 				"          c.name = \"4AII\"");
 		while(r.next()){
+			application.addAlunniNome(r.getString("name"));
 			application.addAlunni(r.getString("email"));
 			application.anno = r.getString("anno");
 			application.classe = r.getString("classe");
@@ -98,7 +102,7 @@ public class DemoApplication {
 					if (text != null && text.contains("{name}")) {
 						// Sostituisci il testo del tag con il nuovo testo desiderato
 						System.out.println(application.jsonArray.toString());
-						text = text.replace("{name}", application.getAlunni().get(j-1));
+						text = text.replace("{name}", application.getAlunniNome().get(j-1));
 						run.setText(text, 0);
 					}
 					if (text != null && text.contains("{tot}")) {
