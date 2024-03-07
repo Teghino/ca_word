@@ -20,9 +20,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @SpringBootApplication
 @EnableScheduling
 public class DemoApplication {
+	@Getter
+	private ArrayList<String> alunni = new ArrayList<>();
 	@Getter
 	private double sommaTotale;
 	private JsonArray jsonArray = new JsonArray();
@@ -34,12 +39,31 @@ public class DemoApplication {
 		this.sommaTotale = 0;
 	}
 
-
+	public void addAlunni(String a){
+		alunni.add(a);
+	}
 
 	public static void main(String[] args) throws SQLException {
+
 		DemoApplication application = new DemoApplication();
 
-		application.getCorsiAlunno("giancarlo.massa.2006@calvino.edu.it");
+		ConnessioneDb c = new ConnessioneDb();
+		ResultSet r = c.select("select u.email, c.name as classe, y.description as anno from ca_users as u, ca_frequented_classes as fc, ca_school_classes as c, ca_school_years as y\n" +
+				"    where fc.school_class_id = c.id and\n" +
+				"          fc.user_id = u.id and\n" +
+				"          c.school_year_id = y.id and\n" +
+				"          y.description = \"Anno scolastico 2022 - 2023\" and\n" +
+				"          c.name = \"4AII\"");
+		while(r.next()){
+			application.addAlunni(r.getString("email"));
+			application.anno = r.getString("anno");
+			application.classe = r.getString("classe");
+		}
+
+		c.chiudi();
+
+
+		application.getCorsiAlunno(application.getAlunni().get(0));
 		System.out.println(application.jsonArray.get(1).getAsJsonObject().get("somma_ore").getClass().getName());
 
 
@@ -47,8 +71,25 @@ public class DemoApplication {
 		try {
 			FileInputStream fis = new FileInputStream("attestato2324.docx");
 			XWPFDocument doc = new XWPFDocument(fis);
-
+			List<XWPFTable> tables = doc.getTables();
+			for(int i= 0; i<application.jsonArray.size(); i++){
+				XWPFTableRow newRow = tables.get(0).createRow();
+				newRow.getCell(0).setText(application.jsonArray.get(i).getAsJsonObject().get("title").getAsString().replaceAll("\"", ""));
+				if (!application.jsonArray.get(i).getAsJsonObject().get("somma_ore").isJsonNull()){
+					newRow.getCell(1).setText(application.jsonArray.get(i).getAsJsonObject().get("somma_ore").getAsString().replaceAll("\"", ""));
+				}else{
+					newRow.getCell(1).setText("0");
+				}
+				if (!application.jsonArray.get(i).getAsJsonObject().get("ore_totali").isJsonNull()){
+					newRow.getCell(2).setText(application.jsonArray.get(i).getAsJsonObject().get("ore_totali").getAsString().replaceAll("\"", ""));
+				}else{
+					newRow.getCell(2).setText("0");
+				}
+				newRow.getCell(3).setText(application.jsonArray.get(i).getAsJsonObject().get("professore").getAsString().replaceAll("\"", ""));
+			}
 			// Itera sui paragrafi del documento
+			boolean finePagina = false;
+			int j = 1;
 			for (XWPFParagraph p : doc.getParagraphs()) {
 				// Itera sui runs (porzioni di testo) del paragrafo
 				for (XWPFRun run : p.getRuns()) {
@@ -56,7 +97,8 @@ public class DemoApplication {
 					System.out.println(text);
 					if (text != null && text.contains("{name}")) {
 						// Sostituisci il testo del tag con il nuovo testo desiderato
-						text = text.replace("{name}", application.jsonArray.get(0).getAsJsonObject().get("name").getAsString());
+						System.out.println(application.jsonArray.toString());
+						text = text.replace("{name}", application.getAlunni().get(j-1));
 						run.setText(text, 0);
 					}
 					if (text != null && text.contains("{tot}")) {
@@ -74,30 +116,39 @@ public class DemoApplication {
 						text = text.replace("{anno}", application.getAnno());
 						run.setText(text, 0);
 					}
-					if (text != null && text.contains("{dataCorrente}")) {
+					if (text != null && text.contains("dataCorrente")) {
 						// Sostituisci il testo del tag con il nuovo testo desiderato
 						DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-						text = text.replace("{dataCorrente}", LocalDate.now().format(formatoFecha));
+						text = text.replace("dataCorrente", LocalDate.now().format(formatoFecha));
 						run.setText(text, 0);
+						System.out.println(j);
+						if(j < application.getAlunni().size()){
+							application.deleteAll();
+							application.getCorsiAlunno((application.getAlunni().get(j)));
+							for(int i= 0; i<application.jsonArray.size(); i++){
+								XWPFTableRow newRow = tables.get(j).createRow();
+								newRow.getCell(0).setText(application.jsonArray.get(i).getAsJsonObject().get("title").getAsString().replaceAll("\"", ""));
+								if (!application.jsonArray.get(i).getAsJsonObject().get("somma_ore").isJsonNull()){
+									newRow.getCell(1).setText(application.jsonArray.get(i).getAsJsonObject().get("somma_ore").getAsString().replaceAll("\"", ""));
+								}else{
+									newRow.getCell(1).setText("0");
+								}
+								if (!application.jsonArray.get(i).getAsJsonObject().get("ore_totali").isJsonNull()){
+									newRow.getCell(2).setText(application.jsonArray.get(i).getAsJsonObject().get("ore_totali").getAsString().replaceAll("\"", ""));
+								}else{
+									newRow.getCell(2).setText("0");
+								}
+								newRow.getCell(3).setText(application.jsonArray.get(i).getAsJsonObject().get("professore").getAsString().replaceAll("\"", ""));
+							}
+							j++;
+
+						}else{
+							finePagina = true;
+						}
+
 					}
 				}
-			}
-			for (XWPFTable table : doc.getTables()) {
-				for(int i= 0; i<application.jsonArray.size(); i++){
-					XWPFTableRow newRow = table.createRow();
-					newRow.getCell(0).setText(application.jsonArray.get(i).getAsJsonObject().get("title").getAsString().replaceAll("\"", ""));
-					if (!application.jsonArray.get(i).getAsJsonObject().get("somma_ore").isJsonNull()){
-						newRow.getCell(1).setText(application.jsonArray.get(i).getAsJsonObject().get("somma_ore").getAsString().replaceAll("\"", ""));
-					}else{
-						newRow.getCell(1).setText("0");
-					}
-					if (!application.jsonArray.get(i).getAsJsonObject().get("ore_totali").isJsonNull()){
-						newRow.getCell(2).setText(application.jsonArray.get(i).getAsJsonObject().get("ore_totali").getAsString().replaceAll("\"", ""));
-					}else{
-						newRow.getCell(2).setText("0");
-					}
-					newRow.getCell(3).setText(application.jsonArray.get(i).getAsJsonObject().get("professore").getAsString().replaceAll("\"", ""));
-				}
+				if (finePagina) break;
 			}
 
 			// Salva le modifiche al documento
@@ -145,7 +196,10 @@ public class DemoApplication {
 			JsonObject jsonObject = element.getAsJsonObject();
 
 			// Estrai il valore "ore_totali" come intero e aggiungilo alla somma
-			this.sommaTotale = this.sommaTotale + jsonObject.get("ore_totali").getAsInt();
+			if(jsonObject.get("somma_ore") != null && !jsonObject.get("somma_ore").isJsonNull()) {
+				this.sommaTotale = this.sommaTotale + jsonObject.get("somma_ore").getAsInt();
+			}
+
 		}
 
 		query = "select c.name as classe, a.description as anno from ca_school_classes as c, ca_school_years as a, ca_users as u, ca_frequented_classes as fc\n" +
@@ -166,5 +220,12 @@ public class DemoApplication {
 		System.out.println(this.sommaTotale);
 		System.out.println(this.jsonArray.toString());
 		c.chiudi();
+	}
+
+	public void deleteAll(){
+		this.jsonArray = new JsonArray();
+		this.sommaTotale = 0;
+		this.anno = null;
+		this.classe = null;
 	}
 }
