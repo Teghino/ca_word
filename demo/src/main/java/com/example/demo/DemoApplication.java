@@ -37,9 +37,10 @@ public class DemoApplication {
 	private String classe;
 	@Getter
 	private String anno;
+
 	public DemoApplication(){
 		this.sommaTotale = 0;
-	}
+}
 
 	public void addAlunni(String a){
 		alunni.add(a);
@@ -66,11 +67,8 @@ public class DemoApplication {
 
 		c.chiudi();
 
-
 		application.getCorsiAlunno(application.getAlunni().get(0));
 		System.out.println(application.jsonArray.get(1).getAsJsonObject().get("somma_ore").getClass().getName());
-
-
 
 		try {
 			FileInputStream fis = new FileInputStream("attestato2324.docx");
@@ -94,6 +92,7 @@ public class DemoApplication {
 			// Itera sui paragrafi del documento
 			boolean finePagina = false;
 			int j = 1;
+			int x = 0;
 			for (XWPFParagraph p : doc.getParagraphs()) {
 				// Itera sui runs (porzioni di testo) del paragrafo
 				for (XWPFRun run : p.getRuns()) {
@@ -152,8 +151,14 @@ public class DemoApplication {
 
 					}
 				}
+				x++;
 				if (finePagina) break;
 			}
+			for (; x < doc.getParagraphs().size() ; x++) {
+				XWPFParagraph paragraph = doc.getParagraphs().get(x);
+				paragraph.getCTP().newCursor().removeXml();
+			}
+
 
 			// Salva le modifiche al documento
 			FileOutputStream fos = new FileOutputStream("documento_modificato.docx");
