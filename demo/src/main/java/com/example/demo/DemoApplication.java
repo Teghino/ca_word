@@ -158,8 +158,11 @@ public class DemoApplication {
 				XWPFParagraph paragraph = doc.getParagraphs().get(x);
 				paragraph.getCTP().newCursor().removeXml();
 			}
-
-
+			//elimina tutte le tabelle in più
+			for(int z = j; z<doc.getTables().size(); z++){
+				XWPFTable table = doc.getTables().get(z);
+				table.getCTTbl().newCursor().removeXml();
+			}
 			// Salva le modifiche al documento
 			FileOutputStream fos = new FileOutputStream("documento_modificato.docx");
 			doc.write(fos);
