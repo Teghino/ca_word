@@ -2,6 +2,7 @@ package com.example.demo;
 
 import com.google.gson.JsonElement;
 import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import org.apache.poi.xwpf.usermodel.*;
@@ -26,15 +27,22 @@ import java.util.List;
 @SpringBootApplication
 @EnableScheduling
 public class DemoApplication {
+	@Setter
 	@Getter
 	private ArrayList<String> alunni = new ArrayList<>();
+	@Setter
 	@Getter
 	private ArrayList<String> alunniNome = new ArrayList<>();
+	@Setter
 	@Getter
 	private double sommaTotale;
+	@Getter
+	@Setter
 	private JsonArray jsonArray = new JsonArray();
+	@Setter
 	@Getter
 	private String classe;
+	@Setter
 	@Getter
 	private String anno;
 
@@ -47,136 +55,7 @@ public class DemoApplication {
 	}
 	public void addAlunniNome(String a){ alunniNome.add(a);}
 
-	public static void main(String[] args) throws SQLException {
-
-		DemoApplication application = new DemoApplication();
-
-		ConnessioneDb c = new ConnessioneDb();
-		ResultSet r = c.select("select u.name, u.email, c.name as classe, y.description as anno from ca_users as u, ca_frequented_classes as fc, ca_school_classes as c, ca_school_years as y\n" +
-				"    where fc.school_class_id = c.id and\n" +
-				"          fc.user_id = u.id and\n" +
-				"          c.school_year_id = y.id and\n" +
-				"          y.description = \"Anno scolastico 2022 - 2023\" and\n" +
-				"          c.name = \"4AII\"");
-		while(r.next()){
-			application.addAlunniNome(r.getString("name"));
-			application.addAlunni(r.getString("email"));
-			application.anno = r.getString("anno");
-			application.classe = r.getString("classe");
-		}
-
-		c.chiudi();
-
-		application.getCorsiAlunno(application.getAlunni().get(0));
-		System.out.println(application.jsonArray.get(1).getAsJsonObject().get("somma_ore").getClass().getName());
-
-		try {
-			FileInputStream fis = new FileInputStream("attestato2324.docx");
-			XWPFDocument doc = new XWPFDocument(fis);
-			List<XWPFTable> tables = doc.getTables();
-			for(int i= 0; i<application.jsonArray.size(); i++){
-				XWPFTableRow newRow = tables.get(0).createRow();
-				newRow.getCell(0).setText(application.jsonArray.get(i).getAsJsonObject().get("title").getAsString().replaceAll("\"", ""));
-				if (!application.jsonArray.get(i).getAsJsonObject().get("somma_ore").isJsonNull()){
-					newRow.getCell(1).setText(application.jsonArray.get(i).getAsJsonObject().get("somma_ore").getAsString().replaceAll("\"", ""));
-				}else{
-					newRow.getCell(1).setText("0");
-				}
-				if (!application.jsonArray.get(i).getAsJsonObject().get("ore_totali").isJsonNull()){
-					newRow.getCell(2).setText(application.jsonArray.get(i).getAsJsonObject().get("ore_totali").getAsString().replaceAll("\"", ""));
-				}else{
-					newRow.getCell(2).setText("0");
-				}
-				newRow.getCell(3).setText(application.jsonArray.get(i).getAsJsonObject().get("professore").getAsString().replaceAll("\"", ""));
-			}
-			// Itera sui paragrafi del documento
-			boolean finePagina = false;
-			int j = 1;
-			int x = 0;
-			for (XWPFParagraph p : doc.getParagraphs()) {
-				// Itera sui runs (porzioni di testo) del paragrafo
-				for (XWPFRun run : p.getRuns()) {
-					String text = run.getText(0);
-					System.out.println(text);
-					if (text != null && text.contains("{name}")) {
-						// Sostituisci il testo del tag con il nuovo testo desiderato
-						System.out.println(application.jsonArray.toString());
-						text = text.replace("{name}", application.getAlunniNome().get(j-1));
-						run.setText(text, 0);
-					}
-					if (text != null && text.contains("{tot}")) {
-						// Sostituisci il testo del tag con il nuovo testo desiderato
-						text = text.replace("{tot}", Double.toString(application.getSommaTotale()));
-						run.setText(text, 0);
-					}
-					if (text != null && text.contains("{classe}")) {
-						// Sostituisci il testo del tag con il nuovo testo desiderato
-						text = text.replace("{classe}", application.getClasse());
-						run.setText(text, 0);
-					}
-					if (text != null && text.contains("{anno}")) {
-						// Sostituisci il testo del tag con il nuovo testo desiderato
-						text = text.replace("{anno}", application.getAnno());
-						run.setText(text, 0);
-					}
-					if (text != null && text.contains("dataCorrente")) {
-						// Sostituisci il testo del tag con il nuovo testo desiderato
-						DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-						text = text.replace("dataCorrente", LocalDate.now().format(formatoFecha));
-						run.setText(text, 0);
-						System.out.println(j);
-						if(j < application.getAlunni().size()){
-							application.deleteAll();
-							application.getCorsiAlunno((application.getAlunni().get(j)));
-							for(int i= 0; i<application.jsonArray.size(); i++){
-								XWPFTableRow newRow = tables.get(j).createRow();
-								newRow.getCell(0).setText(application.jsonArray.get(i).getAsJsonObject().get("title").getAsString().replaceAll("\"", ""));
-								if (!application.jsonArray.get(i).getAsJsonObject().get("somma_ore").isJsonNull()){
-									newRow.getCell(1).setText(application.jsonArray.get(i).getAsJsonObject().get("somma_ore").getAsString().replaceAll("\"", ""));
-								}else{
-									newRow.getCell(1).setText("0");
-								}
-								if (!application.jsonArray.get(i).getAsJsonObject().get("ore_totali").isJsonNull()){
-									newRow.getCell(2).setText(application.jsonArray.get(i).getAsJsonObject().get("ore_totali").getAsString().replaceAll("\"", ""));
-								}else{
-									newRow.getCell(2).setText("0");
-								}
-								newRow.getCell(3).setText(application.jsonArray.get(i).getAsJsonObject().get("professore").getAsString().replaceAll("\"", ""));
-							}
-							j++;
-
-						}else{
-							finePagina = true;
-						}
-
-					}
-				}
-				x++;
-				if (finePagina) break;
-			}
-			for (; x < doc.getParagraphs().size() ; x++) {
-				XWPFParagraph paragraph = doc.getParagraphs().get(x);
-				paragraph.getCTP().newCursor().removeXml();
-			}
-			//elimina tutte le tabelle in più
-			for(int z = j; z<doc.getTables().size(); z++){
-				XWPFTable table = doc.getTables().get(z);
-				table.getCTTbl().newCursor().removeXml();
-			}
-			// Salva le modifiche al documento
-			FileOutputStream fos = new FileOutputStream("documento_modificato.docx");
-			doc.write(fos);
-			fos.close();
-			doc.close();
-			fis.close();
-
-			System.out.println("Documento modificato salvato con successo.");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	private void getCorsiAlunno(String nome) throws SQLException {
+	public void getCorsiAlunno(String nome) throws SQLException {
 		ConnessioneDb c = new ConnessioneDb();
 		String query = "SELECT u.name, c.title, SUM(TIMESTAMPDIFF(HOUR, p.joined_at,  p.exited_at)) as somma_ore,\n" +
 				"                (select SUM(TIMESTAMPDIFF(HOUR, a.started_at, a.ended_at)) from ca_activities as a where c.id = a.course_id) as ore_totali,\n" +
@@ -240,4 +119,136 @@ public class DemoApplication {
 		this.anno = null;
 		this.classe = null;
 	}
+
+	public void stampaAttestato(String classe, String anno) throws SQLException {
+		DemoApplication application = new DemoApplication();
+
+		ConnessioneDb c = new ConnessioneDb();
+		ResultSet r = c.select("select u.name, u.email, c.name as classe, y.description as anno from ca_users as u, ca_frequented_classes as fc, ca_school_classes as c, ca_school_years as y\n" +
+				"    where fc.school_class_id = c.id and\n" +
+				"          fc.user_id = u.id and\n" +
+				"          c.school_year_id = y.id and\n" +
+				"          y.description = \"Anno scolastico "+ anno + "\" and\n" +
+				"          c.name = \"" + classe + "\"");
+		while(r.next()){
+			application.addAlunniNome(r.getString("name"));
+			application.addAlunni(r.getString("email"));
+			application.setAnno(r.getString("anno"));
+			application.setClasse(r.getString("classe"));
+		}
+
+		c.chiudi();
+
+		application.getCorsiAlunno(application.getAlunni().get(0));
+		System.out.println(application.getJsonArray().get(1).getAsJsonObject().get("somma_ore").getClass().getName());
+
+		try {
+			FileInputStream fis = new FileInputStream("attestato2324.docx");
+			XWPFDocument doc = new XWPFDocument(fis);
+			List<XWPFTable> tables = doc.getTables();
+			for(int i= 0; i<application.getJsonArray().size(); i++){
+				XWPFTableRow newRow = tables.get(0).createRow();
+				newRow.getCell(0).setText(application.getJsonArray().get(i).getAsJsonObject().get("title").getAsString().replaceAll("\"", ""));
+				if (!application.getJsonArray().get(i).getAsJsonObject().get("somma_ore").isJsonNull()){
+					newRow.getCell(1).setText(application.getJsonArray().get(i).getAsJsonObject().get("somma_ore").getAsString().replaceAll("\"", ""));
+				}else{
+					newRow.getCell(1).setText("0");
+				}
+				if (!application.getJsonArray().get(i).getAsJsonObject().get("ore_totali").isJsonNull()){
+					newRow.getCell(2).setText(application.getJsonArray().get(i).getAsJsonObject().get("ore_totali").getAsString().replaceAll("\"", ""));
+				}else{
+					newRow.getCell(2).setText("0");
+				}
+				newRow.getCell(3).setText(application.getJsonArray().get(i).getAsJsonObject().get("professore").getAsString().replaceAll("\"", ""));
+			}
+			// Itera sui paragrafi del documento
+			boolean finePagina = false;
+			int j = 1;
+			int x = 0;
+			for (XWPFParagraph p : doc.getParagraphs()) {
+				// Itera sui runs (porzioni di testo) del paragrafo
+				for (XWPFRun run : p.getRuns()) {
+					String text = run.getText(0);
+					System.out.println(text);
+					if (text != null && text.contains("{name}")) {
+						// Sostituisci il testo del tag con il nuovo testo desiderato
+						System.out.println(application.getJsonArray().toString());
+						text = text.replace("{name}", application.getAlunniNome().get(j-1));
+						run.setText(text, 0);
+					}
+					if (text != null && text.contains("{tot}")) {
+						// Sostituisci il testo del tag con il nuovo testo desiderato
+						text = text.replace("{tot}", Double.toString(application.getSommaTotale()));
+						run.setText(text, 0);
+					}
+					if (text != null && text.contains("{classe}")) {
+						// Sostituisci il testo del tag con il nuovo testo desiderato
+						text = text.replace("{classe}", application.getClasse());
+						run.setText(text, 0);
+					}
+					if (text != null && text.contains("{anno}")) {
+						// Sostituisci il testo del tag con il nuovo testo desiderato
+						text = text.replace("{anno}", application.getAnno());
+						run.setText(text, 0);
+					}
+					if (text != null && text.contains("dataCorrente")) {
+						// Sostituisci il testo del tag con il nuovo testo desiderato
+						DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+						text = text.replace("dataCorrente", LocalDate.now().format(formatoFecha));
+						run.setText(text, 0);
+						System.out.println(j);
+						if(j < application.getAlunni().size()){
+							application.deleteAll();
+							application.getCorsiAlunno((application.getAlunni().get(j)));
+							for(int i= 0; i<application.getJsonArray().size(); i++){
+								XWPFTableRow newRow = tables.get(j).createRow();
+								newRow.getCell(0).setText(application.getJsonArray().get(i).getAsJsonObject().get("title").getAsString().replaceAll("\"", ""));
+								if (!application.getJsonArray().get(i).getAsJsonObject().get("somma_ore").isJsonNull()){
+									newRow.getCell(1).setText(application.getJsonArray().get(i).getAsJsonObject().get("somma_ore").getAsString().replaceAll("\"", ""));
+								}else{
+									newRow.getCell(1).setText("0");
+								}
+								if (!application.getJsonArray().get(i).getAsJsonObject().get("ore_totali").isJsonNull()){
+									newRow.getCell(2).setText(application.getJsonArray().get(i).getAsJsonObject().get("ore_totali").getAsString().replaceAll("\"", ""));
+								}else{
+									newRow.getCell(2).setText("0");
+								}
+								newRow.getCell(3).setText(application.getJsonArray().get(i).getAsJsonObject().get("professore").getAsString().replaceAll("\"", ""));
+							}
+							j++;
+
+						}else{
+							finePagina = true;
+						}
+
+					}
+				}
+				x++;
+				if (finePagina) break;
+			}
+			for (; x < doc.getParagraphs().size() ; x++) {
+				XWPFParagraph paragraph = doc.getParagraphs().get(x);
+				paragraph.getCTP().newCursor().removeXml();
+			}
+			//elimina tutte le tabelle in più
+			for(int z = j; z<doc.getTables().size(); z++){
+				XWPFTable table = doc.getTables().get(z);
+				table.getCTTbl().newCursor().removeXml();
+			}
+			// Salva le modifiche al documento
+			FileOutputStream fos = new FileOutputStream("documento_modificato.docx");
+			doc.write(fos);
+			fos.close();
+			doc.close();
+			fis.close();
+
+			System.out.println("Documento modificato salvato con successo.");
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
 }
